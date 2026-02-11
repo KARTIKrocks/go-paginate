@@ -20,9 +20,10 @@ type CursorPaginator struct {
 
 // CursorData holds the data encoded in a cursor.
 // This structure is base64-encoded and can optionally be signed for security.
-type CursorData struct {
+// The type parameter T controls the type of Value, enabling type-safe round-trips.
+type CursorData[T any] struct {
 	ID        string    `json:"id,omitempty"`
-	Value     any       `json:"v,omitempty"`
+	Value     T         `json:"v,omitempty"`
 	Timestamp time.Time `json:"ts,omitzero"`
 	Offset    int       `json:"o,omitempty"`
 }
@@ -84,13 +85,19 @@ func (c *CursorPaginator) HasCursor() bool {
 	return c.Cursor != ""
 }
 
-// DecodeCursor decodes the cursor into CursorData.
+// Decode decodes the cursor into CursorData[any].
 // Returns nil if no cursor is set, or an error if the cursor is invalid.
-func (c *CursorPaginator) DecodeCursor() (*CursorData, error) {
+func (c *CursorPaginator) Decode() (*CursorData[any], error) {
 	if c.Cursor == "" {
 		return nil, nil
 	}
-	return DecodeCursor(c.Cursor)
+	return DecodeCursor[any](c.Cursor)
+}
+
+// Encode encodes cursor data and returns a base64 cursor string.
+// This is a convenience method that delegates to the package-level EncodeCursor.
+func (c *CursorPaginator) Encode(data CursorData[any]) (string, error) {
+	return EncodeCursor(&data)
 }
 
 // Validate validates the cursor paginator parameters.
@@ -99,7 +106,7 @@ func (c *CursorPaginator) Validate() error {
 		return ErrInvalidPageSize
 	}
 	if c.Cursor != "" {
-		if _, err := DecodeCursor(c.Cursor); err != nil {
+		if _, err := c.Decode(); err != nil {
 			return err
 		}
 	}
@@ -169,21 +176,22 @@ func CursorFromQuery(q url.Values) *CursorPaginator {
 }
 
 // EncodeCursor encodes cursor data to a base64 string.
-// Returns empty string if data is nil.
-func EncodeCursor(data *CursorData) string {
+// Returns an empty string and nil error if data is nil.
+// Returns an error if the data cannot be marshaled to JSON.
+func EncodeCursor[T any](data *CursorData[T]) (string, error) {
 	if data == nil {
-		return ""
+		return "", nil
 	}
 	b, err := json.Marshal(data)
 	if err != nil {
-		return ""
+		return "", err
 	}
-	return base64.URLEncoding.EncodeToString(b)
+	return base64.URLEncoding.EncodeToString(b), nil
 }
 
 // DecodeCursor decodes a base64 cursor string to cursor data.
 // Returns an error if the cursor is malformed.
-func DecodeCursor(cursor string) (*CursorData, error) {
+func DecodeCursor[T any](cursor string) (*CursorData[T], error) {
 	if cursor == "" {
 		return nil, nil
 	}
@@ -193,7 +201,7 @@ func DecodeCursor(cursor string) (*CursorData, error) {
 		return nil, ErrInvalidCursor
 	}
 
-	var data CursorData
+	var data CursorData[T]
 	if err := json.Unmarshal(b, &data); err != nil {
 		return nil, ErrInvalidCursor
 	}
@@ -202,24 +210,24 @@ func DecodeCursor(cursor string) (*CursorData, error) {
 }
 
 // NewCursorFromID creates a cursor from an ID.
-func NewCursorFromID(id string) string {
-	return EncodeCursor(&CursorData{ID: id})
+func NewCursorFromID(id string) (string, error) {
+	return EncodeCursor(&CursorData[any]{ID: id})
 }
 
-// NewCursorFromValue creates a cursor from a generic value.
+// NewCursorFromValue creates a cursor from a typed value.
 // Note: The value should be JSON-serializable.
-func NewCursorFromValue(value any) string {
-	return EncodeCursor(&CursorData{Value: value})
+func NewCursorFromValue[T any](value T) (string, error) {
+	return EncodeCursor(&CursorData[T]{Value: value})
 }
 
 // NewCursorFromTimestamp creates a cursor from a timestamp and ID.
 // This is useful for time-based pagination with tie-breaking.
-func NewCursorFromTimestamp(ts time.Time, id string) string {
-	return EncodeCursor(&CursorData{Timestamp: ts, ID: id})
+func NewCursorFromTimestamp(ts time.Time, id string) (string, error) {
+	return EncodeCursor(&CursorData[any]{Timestamp: ts, ID: id})
 }
 
 // NewCursorFromOffset creates a cursor from an offset.
 // This allows using cursor-style APIs with offset-based backends.
-func NewCursorFromOffset(offset int) string {
-	return EncodeCursor(&CursorData{Offset: offset})
+func NewCursorFromOffset(offset int) (string, error) {
+	return EncodeCursor(&CursorData[any]{Offset: offset})
 }

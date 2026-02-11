@@ -1,7 +1,7 @@
 # go-paginate
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/KARTIKrocks/go-paginate.svg)](https://pkg.go.dev/github.com/KARTIKrocks/go-paginate)
-[![Go Report Card](https://goreportcard.com/badge/github.com/KARTIKrocks/go-paginate)](https://goreportcard.com/report/github.com/KARTIKrocks/go-paginate)
+[![Go Reference](https://pkg.go.dev/badge/github.com/KARTIKrocks/go-paginate/v2.svg)](https://pkg.go.dev/github.com/KARTIKrocks/go-paginate/v2)
+[![Go Report Card](https://goreportcard.com/badge/github.com/KARTIKrocks/go-paginate/v2)](https://goreportcard.com/report/github.com/KARTIKrocks/go-paginate/v2)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A comprehensive, production-ready pagination library for Go supporting multiple pagination strategies.
@@ -40,7 +40,7 @@ A comprehensive, production-ready pagination library for Go supporting multiple 
 ## Installation
 
 ```bash
-go get github.com/KARTIKrocks/go-paginate
+go get github.com/KARTIKrocks/go-paginate/v2
 ```
 
 **Requirements:** Go 1.24+
@@ -50,7 +50,7 @@ go get github.com/KARTIKrocks/go-paginate
 ### Offset Pagination
 
 ```go
-import "github.com/KARTIKrocks/go-paginate"
+import "github.com/KARTIKrocks/go-paginate/v2"
 
 // Parse from HTTP request
 func handleUsers(w http.ResponseWriter, r *http.Request) {
@@ -256,16 +256,16 @@ go func() {
 
 ```go
 // Simple ID cursor
-cursor := paginate.NewCursorFromID("user_123")
+cursor, err := paginate.NewCursorFromID("user_123")
 
 // Timestamp-based cursor (for time-ordered data)
-cursor := paginate.NewCursorFromTimestamp(time.Now(), "user_123")
+cursor, err = paginate.NewCursorFromTimestamp(time.Now(), "user_123")
 
 // Offset-based cursor (cursor API with offset backend)
-cursor := paginate.NewCursorFromOffset(100)
+cursor, err = paginate.NewCursorFromOffset(100)
 
 // Decode cursor
-data, err := paginate.DecodeCursor(cursor)
+data, err := paginate.DecodeCursor[any](cursor)
 if err != nil {
     // Handle invalid cursor
 }
@@ -380,13 +380,19 @@ if p.PageSize > 100 {
 - `CursorFromRequest(r *http.Request) *CursorPaginator` - Parse from request
 - `CursorFromQuery(q url.Values) *CursorPaginator` - Parse from query values
 
+#### CursorPaginator Methods
+
+- `Encode(data CursorData[any]) (string, error)` - Encode cursor data
+- `Decode() (*CursorData[any], error)` - Decode the paginator's cursor
+
 #### Cursor Helper Functions
 
-- `EncodeCursor(data *CursorData) string` - Encode cursor data
-- `DecodeCursor(cursor string) (*CursorData, error)` - Decode cursor
-- `NewCursorFromID(id string) string` - Create cursor from ID
-- `NewCursorFromTimestamp(ts time.Time, id string) string` - Create from timestamp
-- `NewCursorFromOffset(offset int) string` - Create from offset
+- `EncodeCursor[T any](data *CursorData[T]) (string, error)` - Encode cursor data
+- `DecodeCursor[T any](cursor string) (*CursorData[T], error)` - Decode cursor
+- `NewCursorFromID(id string) (string, error)` - Create cursor from ID
+- `NewCursorFromValue[T any](value T) (string, error)` - Create cursor from typed value
+- `NewCursorFromTimestamp(ts time.Time, id string) (string, error)` - Create from timestamp
+- `NewCursorFromOffset(offset int) (string, error)` - Create from offset
 
 ## Error Handling
 
@@ -507,9 +513,9 @@ Inspired by pagination patterns from:
 
 ## Support
 
-- 📖 [Documentation](https://pkg.go.dev/github.com/KARTIKrocks/go-paginate)
-- 🐛 [Issue Tracker](https://github.com/KARTIKrocks/go-paginate/issues)
-- 💬 [Discussions](https://github.com/KARTIKrocks/go-paginate/discussions)
+- 📖 [Documentation](https://pkg.go.dev/github.com/KARTIKrocks/go-paginate/v2)
+- 🐛 [Issue Tracker](https://github.com/KARTIKrocks/go-paginate/v2/issues)
+- 💬 [Discussions](https://github.com/KARTIKrocks/go-paginate/v2/discussions)
 
 ---
 

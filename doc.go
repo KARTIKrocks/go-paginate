@@ -27,7 +27,7 @@
 // Use cursor pagination for efficient, consistent results:
 //
 //	c := paginate.NewCursor().WithLimit(20)
-//	cursor := paginate.EncodeCursor(&paginate.CursorData{
+//	cursor, err := c.Encode(paginate.CursorData[any]{
 //		ID: "user_123",
 //		Timestamp: time.Now(),
 //	})

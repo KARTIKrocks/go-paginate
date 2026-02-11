@@ -110,7 +110,8 @@ func TestNewConnection(t *testing.T) {
 	}
 
 	cursorFn := func(item testItem) string {
-		return NewCursorFromID(item.ID)
+		cursor, _ := NewCursorFromID(item.ID)
+		return cursor
 	}
 
 	conn := NewConnection(items, cursorFn, false, true, 100)

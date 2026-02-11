@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/KARTIKrocks/go-paginate"
+	"github.com/KARTIKrocks/go-paginate/v2"
 )
 
 // User represents a user in our system
@@ -110,7 +110,7 @@ func handleCursorPagination(w http.ResponseWriter, r *http.Request) {
 	// Decode cursor if present
 	var startIdx int
 	if c.HasCursor() {
-		cursorData, err := c.DecodeCursor()
+		cursorData, err := c.Decode()
 		if err != nil {
 			http.Error(w, "invalid cursor", http.StatusBadRequest)
 			return
@@ -144,11 +144,11 @@ func handleCursorPagination(w http.ResponseWriter, r *http.Request) {
 	var nextCursor, prevCursor string
 	if endIdx < len(users) {
 		lastUser := pageUsers[len(pageUsers)-1]
-		nextCursor = paginate.NewCursorFromID(lastUser.ID)
+		nextCursor, _ = paginate.NewCursorFromID(lastUser.ID)
 	}
 	if startIdx > 0 && len(pageUsers) > 0 {
 		firstUser := pageUsers[0]
-		prevCursor = paginate.NewCursorFromID(firstUser.ID)
+		prevCursor, _ = paginate.NewCursorFromID(firstUser.ID)
 	}
 
 	// Create response
@@ -237,7 +237,8 @@ func handleGraphQLConnection(w http.ResponseWriter, r *http.Request) {
 	conn := paginate.NewConnection(
 		pageUsers,
 		func(u User) string {
-			return paginate.NewCursorFromID(u.ID)
+			cursor, _ := paginate.NewCursorFromID(u.ID)
+			return cursor
 		},
 		false,              // hasPrev
 		limit < len(users), // hasNext

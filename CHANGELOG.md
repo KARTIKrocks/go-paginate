@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0] - 2026-02-11
+
+### Breaking Changes
+
+- `CursorData` is now generic: `CursorData[T any]` — all existing `CursorData{...}` literals must become `CursorData[any]{...}`
+- `EncodeCursor` is now generic: `EncodeCursor[T any](data *CursorData[T]) (string, error)`
+- `DecodeCursor` is now generic: `DecodeCursor[T any](cursor string) (*CursorData[T], error)`
+- `NewCursorFromValue` is now generic: `NewCursorFromValue[T any](value T) (string, error)`
+- `CursorPaginator.Encode` now takes `CursorData[any]` instead of `CursorData`
+- `CursorPaginator.Decode` now returns `*CursorData[any]` instead of `*CursorData`
+- Module path changed to `github.com/KARTIKrocks/go-paginate/v2`
+
+### Added
+
+- Type-safe cursor values via generic `CursorData[T]` — eliminates JSON round-trip data loss (e.g. `int` no longer decodes as `float64`)
+- `NewCursorFromValue[T any]` for creating cursors with typed values
+
+### Migration from v1
+
+Replace all `CursorData{...}` with `CursorData[any]{...}` for a drop-in upgrade. Use concrete types like `CursorData[int]` or `CursorData[string]` where type-safe round-trips are needed.
+
 ## [1.0.0] - 2026-02-11
 
 ### Added
@@ -97,7 +118,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Version History
 
+- **v2.0.0** - Generic `CursorData[T]` for type-safe cursor values
 - **v1.0.0** - Initial stable release with comprehensive pagination support
 
+[2.0.0]: https://github.com/KARTIKrocks/go-paginate/releases/tag/v2.0.0
 [1.0.0]: https://github.com/KARTIKrocks/go-paginate/releases/tag/v1.0.0
-[Unreleased]: https://github.com/KARTIKrocks/go-paginate/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/KARTIKrocks/go-paginate/compare/v2.0.0...HEAD

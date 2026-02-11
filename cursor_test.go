@@ -72,17 +72,67 @@ func TestCursorClone(t *testing.T) {
 	}
 }
 
+func TestCursorPaginatorEncode(t *testing.T) {
+	c := NewCursor()
+
+	cursor, err := c.Encode(CursorData[any]{ID: "user_123"})
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if cursor == "" {
+		t.Error("Expected non-empty cursor")
+	}
+
+	// Verify round-trip via package-level DecodeCursor
+	data, err := DecodeCursor[any](cursor)
+	if err != nil {
+		t.Fatalf("Unexpected decode error: %v", err)
+	}
+	if data.ID != "user_123" {
+		t.Errorf("Expected ID 'user_123', got '%s'", data.ID)
+	}
+}
+
+func TestCursorPaginatorDecode(t *testing.T) {
+	encoded, err := EncodeCursor(&CursorData[any]{ID: "abc", Offset: 10})
+	if err != nil {
+		t.Fatalf("Unexpected encode error: %v", err)
+	}
+
+	c := NewCursor().WithCursor(encoded)
+	data, err := c.Decode()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if data.ID != "abc" {
+		t.Errorf("Expected ID 'abc', got '%s'", data.ID)
+	}
+	if data.Offset != 10 {
+		t.Errorf("Expected offset 10, got %d", data.Offset)
+	}
+
+	// No cursor set → nil, nil
+	empty := NewCursor()
+	data, err = empty.Decode()
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if data != nil {
+		t.Error("Expected nil data for empty cursor")
+	}
+}
+
 func TestEncodeCursor(t *testing.T) {
 	tests := []struct {
 		name     string
-		data     *CursorData
+		data     *CursorData[any]
 		nonEmpty bool
 	}{
 		{"Nil data", nil, false},
-		{"With ID", &CursorData{ID: "user_123"}, true},
-		{"With timestamp", &CursorData{Timestamp: time.Now()}, true},
-		{"With offset", &CursorData{Offset: 100}, true},
-		{"Complete", &CursorData{
+		{"With ID", &CursorData[any]{ID: "user_123"}, true},
+		{"With timestamp", &CursorData[any]{Timestamp: time.Now()}, true},
+		{"With offset", &CursorData[any]{Offset: 100}, true},
+		{"Complete", &CursorData[any]{
 			ID:        "user_456",
 			Timestamp: time.Now(),
 			Offset:    50,
@@ -91,7 +141,10 @@ func TestEncodeCursor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			cursor := EncodeCursor(tt.data)
+			cursor, err := EncodeCursor(tt.data)
+			if err != nil {
+				t.Fatalf("Unexpected error: %v", err)
+			}
 			if tt.nonEmpty && cursor == "" {
 				t.Error("Expected non-empty cursor")
 			}
@@ -104,14 +157,17 @@ func TestEncodeCursor(t *testing.T) {
 
 func TestDecodeCursor(t *testing.T) {
 	// Create a cursor and decode it
-	original := &CursorData{
+	original := &CursorData[any]{
 		ID:        "user_123",
 		Timestamp: time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
 		Offset:    42,
 	}
 
-	cursor := EncodeCursor(original)
-	decoded, err := DecodeCursor(cursor)
+	cursor, err := EncodeCursor(original)
+	if err != nil {
+		t.Fatalf("Unexpected encode error: %v", err)
+	}
+	decoded, err := DecodeCursor[any](cursor)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -137,7 +193,7 @@ func TestDecodeCursorInvalid(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := DecodeCursor(tt.cursor)
+			_, err := DecodeCursor[any](tt.cursor)
 			if err == nil {
 				t.Error("Expected error for invalid cursor")
 			}
@@ -146,7 +202,7 @@ func TestDecodeCursorInvalid(t *testing.T) {
 }
 
 func TestDecodeCursorEmpty(t *testing.T) {
-	data, err := DecodeCursor("")
+	data, err := DecodeCursor[any]("")
 	if err != nil {
 		t.Errorf("Unexpected error: %v", err)
 	}
@@ -156,6 +212,11 @@ func TestDecodeCursorEmpty(t *testing.T) {
 }
 
 func TestCursorValidate(t *testing.T) {
+	validCursor, err := EncodeCursor(&CursorData[any]{ID: "test"})
+	if err != nil {
+		t.Fatalf("Unexpected encode error: %v", err)
+	}
+
 	tests := []struct {
 		name      string
 		cursor    string
@@ -165,7 +226,7 @@ func TestCursorValidate(t *testing.T) {
 		{"Valid", "", 20, false},
 		{"Invalid limit", "", 0, true},
 		{"Invalid cursor", "invalid-cursor", 20, true},
-		{"Valid cursor", EncodeCursor(&CursorData{ID: "test"}), 20, false},
+		{"Valid cursor", validCursor, 20, false},
 	}
 
 	for _, tt := range tests {
@@ -217,13 +278,16 @@ func TestCursorFromRequest(t *testing.T) {
 }
 
 func TestNewCursorFromID(t *testing.T) {
-	cursor := NewCursorFromID("user_123")
+	cursor, err := NewCursorFromID("user_123")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	if cursor == "" {
 		t.Error("Expected non-empty cursor")
 	}
 
 	// Decode and verify
-	data, err := DecodeCursor(cursor)
+	data, err := DecodeCursor[any](cursor)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -234,13 +298,16 @@ func TestNewCursorFromID(t *testing.T) {
 
 func TestNewCursorFromTimestamp(t *testing.T) {
 	ts := time.Date(2024, 1, 1, 12, 0, 0, 0, time.UTC)
-	cursor := NewCursorFromTimestamp(ts, "item_456")
+	cursor, err := NewCursorFromTimestamp(ts, "item_456")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 
 	if cursor == "" {
 		t.Error("Expected non-empty cursor")
 	}
 
-	data, err := DecodeCursor(cursor)
+	data, err := DecodeCursor[any](cursor)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -255,12 +322,15 @@ func TestNewCursorFromTimestamp(t *testing.T) {
 }
 
 func TestNewCursorFromOffset(t *testing.T) {
-	cursor := NewCursorFromOffset(100)
+	cursor, err := NewCursorFromOffset(100)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
 	if cursor == "" {
 		t.Error("Expected non-empty cursor")
 	}
 
-	data, err := DecodeCursor(cursor)
+	data, err := DecodeCursor[any](cursor)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -313,17 +383,54 @@ func TestCursorQueryParams(t *testing.T) {
 	}
 }
 
+func TestNewCursorFromValue(t *testing.T) {
+	// Test with a concrete type to verify type-safe round-trip
+	cursor, err := NewCursorFromValue("hello")
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	if cursor == "" {
+		t.Error("Expected non-empty cursor")
+	}
+
+	// Decode with the same concrete type — no data loss
+	data, err := DecodeCursor[string](cursor)
+	if err != nil {
+		t.Fatalf("Unexpected decode error: %v", err)
+	}
+	if data.Value != "hello" {
+		t.Errorf("Expected Value 'hello', got %q", data.Value)
+	}
+
+	// Test with int to verify no float64 round-trip loss
+	cursorInt, err := NewCursorFromValue(42)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+
+	dataInt, err := DecodeCursor[int](cursorInt)
+	if err != nil {
+		t.Fatalf("Unexpected decode error: %v", err)
+	}
+	if dataInt.Value != 42 {
+		t.Errorf("Expected Value 42, got %d", dataInt.Value)
+	}
+}
+
 func TestCursorRoundTrip(t *testing.T) {
 	// Test that encoding and decoding preserves data
-	original := &CursorData{
+	original := &CursorData[any]{
 		ID:        "test_123",
 		Value:     "some-value",
 		Timestamp: time.Now().UTC().Truncate(time.Second), // Truncate for comparison
 		Offset:    42,
 	}
 
-	encoded := EncodeCursor(original)
-	decoded, err := DecodeCursor(encoded)
+	encoded, err := EncodeCursor(original)
+	if err != nil {
+		t.Fatalf("Unexpected encode error: %v", err)
+	}
+	decoded, err := DecodeCursor[any](encoded)
 
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -341,25 +448,25 @@ func TestCursorRoundTrip(t *testing.T) {
 }
 
 func BenchmarkEncodeCursor(b *testing.B) {
-	data := &CursorData{
+	data := &CursorData[any]{
 		ID:        "user_123",
 		Timestamp: time.Now(),
 		Offset:    42,
 	}
 
-	for i := 0; i < b.N; i++ {
-		_ = EncodeCursor(data)
+	for b.Loop() {
+		_, _ = EncodeCursor(data)
 	}
 }
 
 func BenchmarkDecodeCursor(b *testing.B) {
-	cursor := EncodeCursor(&CursorData{
+	cursor, _ := EncodeCursor(&CursorData[any]{
 		ID:        "user_123",
 		Timestamp: time.Now(),
 	})
 
-	for i := 0; i < b.N; i++ {
-		_, _ = DecodeCursor(cursor)
+	for b.Loop() {
+		_, _ = DecodeCursor[any](cursor)
 	}
 }
 
